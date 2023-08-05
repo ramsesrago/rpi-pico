@@ -17,9 +17,13 @@ RED = graphics.create_pen(255, 0, 0)
 
 # Timer definitions
 total_time = 100
+#est_time = time.localtime([2023,1,1,1,1,5,1,1])
+est_time = time.localtime(65)
+est_formatted_time = "{a:02d}:{b:02d}".format(a = est_time[4], b = est_time[5]%60)
 
 # PLC definitions
 delayed_pz = 10
+on_time_pz = 0
 
 def setup_display():
     graphics.clear()
@@ -36,11 +40,11 @@ def display_actual_time(formatted_time):
 def display_est_time():
     graphics.set_pen(WHITE)
     graphics.text("T.Est", 1, 0, scale=1)
-    graphics.text("01:05", 1, 6, scale=1)
+    graphics.text(est_formatted_time, 1, 6, scale=1)
 
 def display_curr_count():
     graphics.set_pen(MAGENTA)
-    graphics.text("C:398", 32, 0, scale=1)
+    graphics.text("C:" + str(on_time_pz), 32, 0, scale=1)
 
 def display_delayed_pz():
     # Imprimir cuenta de piezas retrasadas
@@ -65,9 +69,12 @@ def time_tick(timer):
     
 def start_timer():
     Timer().init(freq=1, mode=Timer.PERIODIC, callback=time_tick)
-    
+
 def GPIO_A0_callback(pin):
     pin.irq(handler=None)
+    global on_time_pz
+    on_time_pz += 1
+    print("on_time_pz: ", on_time_pz)
     print("Falling edge detected for: ", pin)
     pin.irq(handler=GPIO_A0_callback)
 
