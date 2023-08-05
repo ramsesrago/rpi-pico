@@ -68,13 +68,28 @@ def start_timer():
     
 def GPIO_A0_callback(pin):
     pin.irq(handler=None)
-    print("Falling edge detected")
+    print("Falling edge detected for: ", pin)
     pin.irq(handler=GPIO_A0_callback)
 
+def GPIO_A1_callback(pin):
+    pin.irq(handler=None)
+    print("Falling edge detected for: ", pin)
+    pin.irq(handler=GPIO_A1_callback)
+
+def GPIO_A2_callback(pin):
+    pin.irq(handler=None)
+    print("Falling edge detected for: ", pin)
+    pin.irq(handler=GPIO_A2_callback)
+
+# Can an interrupt be interrupted?
 def setup_gpios():
-    GPIO_A0 = Pin(26, Pin.IN, Pin.PULL_UP) 
+    GPIO_A0 = Pin(26, Pin.IN, Pin.PULL_UP)
+    GPIO_A1 = Pin(27, Pin.IN, Pin.PULL_UP)
+    GPIO_A2 = Pin(28, Pin.IN, Pin.PULL_UP) 
     #GPIO_A0.irq(lambda pin: print("IRQ with flags:", pin.irq().flags()), Pin.IRQ_FALLING)
     GPIO_A0.irq(trigger=Pin.IRQ_FALLING, handler=GPIO_A0_callback)
+    GPIO_A1.irq(trigger=Pin.IRQ_FALLING, handler=GPIO_A1_callback)
+    GPIO_A2.irq(trigger=Pin.IRQ_FALLING, handler=GPIO_A2_callback)
 
 setup_display()
 # Start timer
