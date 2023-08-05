@@ -1,51 +1,5 @@
 # '''
-# buttons.py
-# Push either switch A, switch B or the BOOT switch (in the case of the non-w version) to change the display
-# '''
-# import interstate75
-# 
-# i75 = interstate75.Interstate75(display=interstate75.DISPLAY_INTERSTATE75_64X32)
-# graphics = i75.display
-# 
-# width = i75.width
-# height = i75.height
-# 
-# A_COLOR = graphics.create_pen(0x31, 0x81, 0xCE)
-# A_TEXT = graphics.create_pen(0xCE, 0x7E, 0x31)
-# 
-# BOOT_COLOR = graphics.create_pen(0xC3, 0x3C, 0xBD)
-# BOOT_TEXT = graphics.create_pen(0x3C, 0xC3, 0x42)
-# 
-# BG = graphics.create_pen(0xC1, 0x99, 0x3E)
-# 
-# 
-# def display_a():
-#     graphics.set_pen(A_COLOR)
-#     graphics.clear()
-#     graphics.set_pen(A_TEXT)
-#     graphics.text("T. Est", 8, 6, False, 3)
-#     i75.update()
-# 
-# 
-# def display_boot():
-#     graphics.set_pen(BOOT_COLOR)
-#     graphics.clear()
-#     graphics.set_pen(BOOT_TEXT)
-#     graphics.text("BOOT", 5, 11, False, 1)
-#     i75.update()
-# 
-# 
-# graphics.set_pen(BG)
-# graphics.clear()
-# i75.update()
-# 
-# while 1:
-#     if i75.switch_pressed(interstate75.SWITCH_A):
-#         display_a()
-#     if i75.switch_pressed(interstate75.SWITCH_BOOT):
-#         display_boot()
-# 
-#
+# regal.py
 
 from interstate75 import Interstate75
 import time
@@ -97,7 +51,7 @@ def display_delayed_pz():
     graphics.text(delayed_pz_str, 32, 16, scale=2)
 
 def time_tick(timer):
-    global time_left, start_time, total_time
+    global start_time, total_time
     current_time = time.time() # using the time() function will likely be more accurate than counting the ticks, plus we can mess with the tick frequency now.
     elapsed_time = current_time - start_time
     formatted_time = "{a:02d}:{b:02d}".format(a = elapsed_time//60, b = elapsed_time%60)
@@ -111,9 +65,20 @@ def time_tick(timer):
     
 def start_timer():
     Timer().init(freq=1, mode=Timer.PERIODIC, callback=time_tick)
+    
+def GPIO_A0_callback(pin):
+    pin.irq(handler=None)
+    print("Falling edge detected")
+    pin.irq(handler=GPIO_A0_callback)
+
+def setup_gpios():
+    GPIO_A0 = Pin(26, Pin.IN, Pin.PULL_UP) 
+    #GPIO_A0.irq(lambda pin: print("IRQ with flags:", pin.irq().flags()), Pin.IRQ_FALLING)
+    GPIO_A0.irq(trigger=Pin.IRQ_FALLING, handler=GPIO_A0_callback)
 
 setup_display()
 # Start timer
 global start_time
 start_time = time.time()
 start_timer()
+setup_gpios()
