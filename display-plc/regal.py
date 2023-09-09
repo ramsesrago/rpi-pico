@@ -12,8 +12,10 @@ graphics = i75.display
 MAGENTA = graphics.create_pen(255, 0, 255)
 BLACK = graphics.create_pen(0, 0, 0)
 WHITE = graphics.create_pen(255, 255, 255)
-GREEN = graphics.create_pen(34, 139, 34)
-RED = graphics.create_pen(255, 0, 0)
+GREEN = graphics.create_pen(57, 255, 20)
+#RED = graphics.create_pen(255, 0, 0)
+RED = graphics.create_pen(255, 24, 24)
+BLUE = graphics.create_pen(8, 51, 162)
 
 # Timer definitions
 total_time = 100
@@ -34,17 +36,17 @@ def display_actual_time(formatted_time):
     graphics.set_pen(BLACK)
     graphics.clear()
     graphics.set_pen(GREEN)
-    graphics.text("T.Act: ", 1, 15, scale=1)
-    graphics.text(formatted_time, 1, 22, scale=1)
+    graphics.text("T.Act: ", 1, 16, scale=1)
+    graphics.text(formatted_time, 1, 24, scale=1)
     
 def display_est_time():
     graphics.set_pen(WHITE)
     graphics.text("T.Est", 1, 0, scale=1)
-    graphics.text(est_formatted_time, 1, 6, scale=1)
+    graphics.text(est_formatted_time, 1, 8, scale=1)
 
 def display_curr_count():
     graphics.set_pen(MAGENTA)
-    graphics.text("C:" + str(on_time_pz), 32, 0, scale=1)
+    graphics.text("C:" + str(on_time_pz), 32, 4, scale=1)
 
 def display_delayed_pz():
     # Imprimir cuenta de piezas retrasadas
@@ -52,7 +54,7 @@ def display_delayed_pz():
     # y el T.Act > T.Est
     graphics.set_pen(RED)
     delayed_pz_str = str(delayed_pz)
-    graphics.text(delayed_pz_str, 32, 16, scale=2)
+    graphics.text(delayed_pz_str, 32, 14, scale=2)
 
 def time_tick(timer):
     global start_time, total_time
