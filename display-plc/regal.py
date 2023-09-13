@@ -32,6 +32,10 @@ est_formatted_time = "{a:02d}:{b:02d}".format(a = est_time[4], b = est_time[5]%6
 delayed_pz = 0
 on_time_pz = 0
 
+# Fonts
+# bitmap14_outline
+# bitmap8
+
 def setup_display():
     graphics.clear()
     graphics.set_font("bitmap8")
@@ -57,10 +61,10 @@ def display_delayed_pz():
     # y el T.Act > T.Est
     graphics.set_pen(RED)
     delayed_pz_str = str(delayed_pz)
-    graphics.text(delayed_pz_str, 32, 14, scale=2)
+    graphics.text(delayed_pz_str, 32, 16, scale=2)
 
 def time_tick(timer):
-    global start_time, total_time
+    global start_time, total_time, elapsed_time
     current_time = time.time() # using the time() function will likely be more accurate than counting the ticks, plus we can mess with the tick frequency now.
     elapsed_time = current_time - start_time
     formatted_time = "{a:02d}:{b:02d}".format(a = elapsed_time//60, b = elapsed_time%60)
@@ -86,11 +90,33 @@ def GPIO_A0_callback(pin):
     pin.irq(trigger=Pin.IRQ_FALLING, handler=GPIO_A0_callback)
 
 # CUENTA pieza y resetea T.Act
+
+#### CONDICION 1
+# Si el tiempo de la pieza contada excedio el T.est
+# Se tiene que incrementar el contador de piezas retrasadas (delayed_pz)
+# Ademas se incrementa el contador de piezas a  timepo (on_time_pz)
+# Se incrementa el ROJO y el MAGENTA
+
+#### CONDICION 2
+# Si el tiempo de la pieza contada esta dentro del T.est
+# Se incrementa el contador de piezas a tiempo (on_time_pz)
+# Se incrementa el MAGENTA
+
 def GPIO_A1_callback(pin):
     pin.irq(handler=None)
     print("GPIO_A1_callback Falling edge detected for: ", pin)
-    global on_time_pz
-    on_time_pz += 1
+    global on_time_pz, elapsed_time, delayed_pz
+    
+    tiempo_total = est_time[5] + est_time[4]*60
+    if (elapsed_time < tiempo_total):
+        print("GPIO_A1_callback elapsed_time < est_time")
+        on_time_pz += 1
+        # Pausar timepo
+    else:
+        print("GPIO_A1_callback elapsed_time >= est_time")
+        on_time_pz += 1
+        delayed_pz += 1
+    
     pin.irq(trigger=Pin.IRQ_FALLING, handler=GPIO_A1_callback)
 
 # RESET GENERAL
