@@ -1,0 +1,26 @@
+Requerimientos
+1. Iniciar pantalla con valores predeterminados y timer en cero
+2. El timer comienza a contar hasta que se da el inicio de ciclo por el PIN A0 del micro
+3. Cuando llega un flanco de bajada al pin A1 tenemos dos escenarios con base al tiempo del ciclo 
+	a) Si el tiempo del ciclo de la pieza es < Tiempo establecido
+		Se incrementa el contador de piezas totales (piezas_totales)
+	b) Si el timepo del ciclo de la pieza es > Tiempo establecido 
+		Se incrementa el contador de piezas totales (piezas_totales)
+		Se incrementa el contador de piezas retrasada (piezas_retrasadas)
+4. Si llega el flanco de bajada en A1 el tiempo transcurrido se debe de pausar con el fin de permitir
+   que la maquina tome otra pieza para comenzar nuevo ciclo
+5. Una vez que se inicie el ciclo nuevamente por medio del pin A0 el timer del tiempo transcurrido tiene que empezar a correr
+6. Si llega un flanco de bajada por el pin A2 la pantalla tiene que reiniciarse con sus valores predeterminador del tiempo establecido y poner
+   el timer del tiempo transcurrido en ceros.
+7. El programa debe de almacenarse en memoria flash para que si se desconecta la energia pueda arrancar el programa de manera automatica
+8. El Rpi debe de ser capaz de recibir senales ruidosas para los pines A0, A1 y A2 y no reaccionar hasta que se ejercuta el INICIO de ciclo oficial
+9. El prototipo debe de ir encapsulado en una caja que proteja contra polvo y liquidos.
+10. La caja del prototipo debe de tener una interfaz USB tipo A Hembra o tipo B hembra para poder modificar los parametros de tiempo.
+
+Preguntas
+1. Se puede iniciar el ciclo sin que haya llegado una pieza a pausar el timer?
+	Se tienen que ignorar todos los inicios de ciclo que no hayan tenido en medio una
+	cuenta de pieza
+2. Se pueden contar la piezas sin que haya iniciado ciclo?
+	Se tienen que ignorar las cuentas si no ha iniciado el ciclo
+ 
