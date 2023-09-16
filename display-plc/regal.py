@@ -15,6 +15,7 @@ WHITE = graphics.create_pen(255, 255, 255)
 GREEN = graphics.create_pen(57, 255, 20)
 RED = graphics.create_pen(255, 24, 24)
 BLUE = graphics.create_pen(8, 51, 162)
+graphics.set_backlight(1)
 
 # Timer definitions
 total_time = 100
@@ -32,6 +33,7 @@ elapsed_time = 0
 ## RESET general
 delayed_pz = 0
 on_time_pz = 0
+inicio_ciclo = 0
 
 # Fonts
 # bitmap14_outline
@@ -40,7 +42,7 @@ on_time_pz = 0
 def setup_display():
     graphics.clear()
     graphics.set_font("bitmap8")
-    graphics.set_thickness(25)
+    graphics.set_thickness(45)
     graphics.set_pen(BLACK)
     graphics.clear()
     display_actual_time("00:00")
@@ -52,16 +54,16 @@ def setup_display():
 def display_actual_time(formatted_time):
     graphics.set_pen(GREEN)
     graphics.text("T.Act: ", 1, 16, scale=1)
-    graphics.text(formatted_time, 1, 24, scale=1)
+    graphics.text(formatted_time, 1, 24, spacing = 2, scale=1)
     
 def display_est_time():
     graphics.set_pen(WHITE)
     graphics.text("T.Est", 1, 0, scale=1)
-    graphics.text(est_formatted_time, 1, 8, scale=1)
+    graphics.text(est_formatted_time, 1, 8, spacing = 2, scale=1)
 
 def display_curr_count():
     graphics.set_pen(MAGENTA)
-    graphics.text("C:" + str(on_time_pz), 32, 4, scale=1)
+    graphics.text("C:" + str(on_time_pz), 32, 4, spacing = 2, scale=1)
 
 def display_delayed_pz():
     # Imprimir cuenta de piezas retrasadas
@@ -72,14 +74,14 @@ def display_delayed_pz():
     graphics.text(delayed_pz_str, 32, 16, scale=2)
 
 def time_tick(timer):
-    print("time-tick")
+    #print("time-tick")
     global start_time, total_time, elapsed_time
     current_time = time.time() # using the time() function will likely be more accurate than counting the ticks, plus we can mess with the tick frequency now.
     elapsed_time = current_time - start_time
     
     
 def update_display_callback(timer):
-    print("update callback")
+    #print("update callback")
     global formatted_time, elapsed_time
     formatted_time = "{a:02d}:{b:02d}".format(a = elapsed_time//60, b = elapsed_time%60)
     graphics.set_pen(BLACK)
@@ -97,6 +99,8 @@ def start_timer():
 
 # INICIO empieza timer
 def GPIO_A0_callback(pin):
+    # La interrupcion de inicio de ciclo se dehabilita y se vuelve a habilitar hasta que
+    # el proceso cuente una pieza mediante A1
     pin.irq(handler=None)
     print("GPIO_A0_callback Falling edge detected for: ", pin)
     # Start timer
@@ -105,10 +109,11 @@ def GPIO_A0_callback(pin):
     formatted_time = "00:00"
     start_time = time.time()
     start_timer()
-    pin.irq(trigger=Pin.IRQ_FALLING, handler=GPIO_A0_callback)
     # Despues del inicio de ciclo el micro esta listo para recibir otros eventos
     GPIO_A1.irq(trigger=Pin.IRQ_FALLING, handler=GPIO_A1_callback)
     GPIO_A2.irq(trigger=Pin.IRQ_FALLING, handler=GPIO_A2_callback)
+    
+    pin.irq(trigger=Pin.IRQ_FALLING, handler=GPIO_A0_callback)
 
 # CUENTA pieza y resetea T.Act
 
@@ -124,13 +129,14 @@ def GPIO_A0_callback(pin):
 # Se incrementa el MAGENTA
 
 def GPIO_A1_callback(pin):
+    # La interrupcion de la cuenta de piezas se dehabilita ya que el ciclo ha terminado
+    # Se vuelve a habilitar hasta que inicie un nuevo ciclo
     pin.irq(handler=None)
     print("GPIO_A1_callback Falling edge detected for: ", pin)
-    global on_time_pz, elapsed_time, delayed_pz, tick_timer
-    # Detiene el timer
-    tick_timer.deinit()
-    #elapsed_time = 0
+    global on_time_pz, elapsed_time, delayed_pz, tick_timer, GPIO_A0
     
+    # Detiene el timer
+    tick_timer.deinit()    
     tiempo_total = est_time[5] + est_time[4]*60
     if (elapsed_time < tiempo_total):
         print("GPIO_A1_callback elapsed_time < est_time")
@@ -140,6 +146,7 @@ def GPIO_A1_callback(pin):
         on_time_pz += 1
         delayed_pz += 1
     
+    # El sistema esta listo para recibir otro inicio de ciclo
     pin.irq(trigger=Pin.IRQ_FALLING, handler=GPIO_A1_callback)
 
 # RESET GENERAL
@@ -159,11 +166,7 @@ def setup_gpios():
     GPIO_A0 = Pin(26, Pin.IN, Pin.PULL_UP)
     GPIO_A1 = Pin(27, Pin.IN, Pin.PULL_UP)
     GPIO_A2 = Pin(28, Pin.IN, Pin.PULL_UP) 
-    #GPIO_A0.irq(lambda pin: print("IRQ with flags:", pin.irq().flags()), Pin.IRQ_FALLING)
-    # Inicialmente solo se requiere la interrupcion de INICIO de ciclo
     GPIO_A0.irq(trigger=Pin.IRQ_FALLING, handler=GPIO_A0_callback)
-    #GPIO_A1.irq(trigger=Pin.IRQ_FALLING, handler=GPIO_A1_callback)
-    #GPIO_A2.irq(trigger=Pin.IRQ_FALLING, handler=GPIO_A2_callback)
 
 setup_display()
 setup_gpios()
