@@ -23,6 +23,8 @@ total_time = 100
 est_time = time.localtime(15)
 est_formatted_time = "{a:02d}:{b:02d}".format(a = est_time[4], b = est_time[5]%60)
 elapsed_time = 0
+last_interrupt_time = 0
+debounce_delay = 5  # Adjust this value to your debounce requirements (in milliseconds)
 
 # PLC definitions
 ## A0
@@ -33,7 +35,6 @@ elapsed_time = 0
 ## RESET general
 delayed_pz = 0
 on_time_pz = 0
-inicio_ciclo = 0
 
 # Fonts
 # bitmap14_outline
@@ -92,26 +93,43 @@ def update_display_callback(timer):
     display_delayed_pz()
     i75.update(graphics)
     
-def start_timer():
+def setup_timers():
     global tick_timer, update_display_timer
-    tick_timer = Timer(period=1000, mode=Timer.PERIODIC, callback=time_tick)
+    tick_timer = Timer(period=86400000, mode=Timer.ONE_SHOT, callback=time_tick)
     update_display_timer = Timer(period=500, mode=Timer.PERIODIC, callback=update_display_callback)
+    
+def debounce_interrupt():
+    global last_interrupt_time
+    current_time = time.ticks_ms()
+
+     # Check if enough time has elapsed since the last interrupt
+    if time.ticks_diff(current_time, last_interrupt_time) >= debounce_delay:
+        print("Valid interrupt")
+        last_interrupt_time = current_time
+        return True
+    
+    return False
 
 # INICIO empieza timer
 def GPIO_A0_callback(pin):
     # La interrupcion de inicio de ciclo se dehabilita y se vuelve a habilitar hasta que
     # el proceso cuente una pieza mediante A1
     pin.irq(handler=None)
-    print("GPIO_A0_callback Falling edge detected for: ", pin)
-    # Start timer
-    global start_time, GPIO_A1, GPIO_A2, elapsed_time, formatted_time
-    elapsed_time = 0
-    formatted_time = "00:00"
-    start_time = time.time()
-    start_timer()
-    # Despues del inicio de ciclo el micro esta listo para recibir otros eventos
-    GPIO_A1.irq(trigger=Pin.IRQ_FALLING, handler=GPIO_A1_callback)
-    GPIO_A2.irq(trigger=Pin.IRQ_FALLING, handler=GPIO_A2_callback)
+    
+    if (debounce_interrupt()):
+        print("GPIO_A0_callback Falling edge detected for: ", pin)
+        # Start timer
+        global start_time, GPIO_A1, GPIO_A2, elapsed_time, formatted_time
+        elapsed_time = 0
+        formatted_time = "00:00"
+        start_time = time.time()
+        tick_timer.init(period=1000, mode=Timer.PERIODIC, callback=time_tick)
+        #start_timer()
+        # Despues del inicio de ciclo el micro esta listo para recibir otros eventos
+        #GPIO_A1.irq(trigger=Pin.IRQ_FALLING, handler=GPIO_A1_callback)
+        #GPIO_A2.irq(trigger=Pin.IRQ_FALLING, handler=GPIO_A2_callback)
+    else:
+        print("GPIO A0 bouncing detected and ignored")
     
     pin.irq(trigger=Pin.IRQ_FALLING, handler=GPIO_A0_callback)
 
@@ -147,18 +165,25 @@ def GPIO_A1_callback(pin):
         delayed_pz += 1
     
     # El sistema esta listo para recibir otro inicio de ciclo
-    pin.irq(trigger=Pin.IRQ_FALLING, handler=GPIO_A1_callback)
+    GPIO_A0.irq(trigger=Pin.IRQ_FALLING, handler=GPIO_A0_callback)
 
 # RESET GENERAL
 # Resetea contador de piezas
 # Resetea contador de piezas en retraso
 def GPIO_A2_callback(pin):
+    # Se deshabilita la interrupcion para evitar rebote
+    # Se vuelve a habilitar mediante la interrupcion de A0
     pin.irq(handler=None)
     print("GPIO_A2_callback Falling edge detected for: ", pin)
+    global on_time_pz, delayed_pz, formatted_time, GPIO_A0, tick_timer, elapsed_time
     on_time_pz = 0
     delayed_pz = 0
+    elapsed_time = 0
+    formatted_time = "00:00"
     tick_timer.deinit()
-    pin.irq(trigger=Pin.IRQ_FALLING, handler=GPIO_A2_callback)
+    
+    # El sistema esta listo para recibir otro inicio de ciclo
+    GPIO_A0.irq(trigger=Pin.IRQ_FALLING, handler=GPIO_A0_callback)
 
 # Can an interrupt be interrupted?
 def setup_gpios():
@@ -169,4 +194,5 @@ def setup_gpios():
     GPIO_A0.irq(trigger=Pin.IRQ_FALLING, handler=GPIO_A0_callback)
 
 setup_display()
+setup_timers()
 setup_gpios()
