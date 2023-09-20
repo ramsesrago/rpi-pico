@@ -4,7 +4,9 @@
 from interstate75 import Interstate75
 import time
 from machine import Pin, Timer
-#import _thread
+import _thread
+
+lock = _thread.allocate_lock()  # Lock for synchronization
 
 # Display definitions
 i75 = Interstate75(display=Interstate75.DISPLAY_INTERSTATE75_64X32)
@@ -19,18 +21,19 @@ graphics.set_backlight(1)
 
 # Timer definitions
 total_time = 100
-#est_time = time.localtime([2023,1,1,1,1,5,1,1])
 est_time = time.localtime(15)
 est_formatted_time = "{a:02d}:{b:02d}".format(a = est_time[4], b = est_time[5]%60)
 elapsed_time = 0
-last_interrupt_time = 0
-debounce_delay = 15  # Adjust this value to your debounce requirements (in milliseconds)
+# Diccionario que captura el tiempo en que la ultima interrupcion ocurrio
+last_interrupt_times = {}
+pin_number_map = {}
+debounce_delay = 5  # Adjust this value to your debounce requirements (in milliseconds)
 
 # PLC definitions
 ## A0
 ## INICIO ciclo
 ## A1
-## CUENTA pieza
+## CUENTA pieza (PARO)
 ## A2
 ## RESET general
 delayed_pz = 0
@@ -95,17 +98,20 @@ def update_display_callback(timer):
 def setup_timers():
     global tick_timer, update_display_timer
     tick_timer = Timer(period=86400000, mode=Timer.ONE_SHOT, callback=time_tick)
-    update_display_timer = Timer(period=500, mode=Timer.PERIODIC, callback=update_display_callback)
+    update_display_timer = Timer(period=500, mode=Timer.PERIODIC, callback=update_display_callback)    
     
-def debounce_interrupt():
-    global last_interrupt_time
-    current_time = time.ticks_ms()
+def debounce_interrupt(pin):
+    global last_interrupt_times
+    
+    with lock:  # Acquire the lock before accessing shared data
+        current_time = time.ticks_ms()
+        last_interrupt_time = last_interrupt_times.get(pin, 0) # Default value is 0
 
-     # Check if enough time has elapsed since the last interrupt
-    if time.ticks_diff(current_time, last_interrupt_time) >= debounce_delay:
-        print("Valid interrupt")
-        last_interrupt_time = current_time
-        return True
+         # Check if enough time has elapsed since the last interrupt
+        if time.ticks_diff(current_time, last_interrupt_time) >= debounce_delay:
+            print("Valid interrupt")
+            last_interrupt_times[pin] = current_time
+            return True
     
     return False
 
@@ -117,7 +123,7 @@ def GPIO_A0_callback(pin):
     
     gpio_state = pin.value()  # Define button_state locally
     
-    if (debounce_interrupt()):
+    if (debounce_interrupt(pin)):
         
         if (gpio_state == 1):
             print("GPIO_A0_callback Debounced rising edge detected for: ", pin)
@@ -130,8 +136,8 @@ def GPIO_A0_callback(pin):
             tick_timer.init(period=1000, mode=Timer.PERIODIC, callback=time_tick)
             #start_timer()
             # Despues del inicio de ciclo el micro esta listo para recibir otros eventos
-            #GPIO_A1.irq(trigger=Pin.IRQ_FALLING, handler=GPIO_A1_callback)
-            #GPIO_A2.irq(trigger=Pin.IRQ_FALLING, handler=GPIO_A2_callback)
+            GPIO_A1.irq(trigger=Pin.IRQ_FALLING|Pin.IRQ_RISING, handler=GPIO_A1_callback)
+            GPIO_A2.irq(trigger=Pin.IRQ_FALLING|Pin.IRQ_RISING, handler=GPIO_A2_callback)
         elif (gpio_state == 0):
             print("GPIO_A0_callback Debounced falling edge detected for: ", pin)
             print("No logic will get executed")
@@ -197,10 +203,12 @@ def GPIO_A2_callback(pin):
 
 # Can an interrupt be interrupted?
 def setup_gpios():
-    global GPIO_A0, GPIO_A1, GPIO_A2
+    global GPIO_A0, GPIO_A1, GPIO_A2, last_interrupt_times, pin_number_map
     GPIO_A0 = Pin(26, Pin.IN, Pin.PULL_UP)
     GPIO_A1 = Pin(27, Pin.IN, Pin.PULL_UP)
-    GPIO_A2 = Pin(28, Pin.IN, Pin.PULL_UP) 
+    GPIO_A2 = Pin(28, Pin.IN, Pin.PULL_UP)
+    # Initialize dictionary
+    last_interrupt_times = {GPIO_A0: 0, GPIO_A1: 0, GPIO_A2: 0}
     GPIO_A0.irq(trigger=Pin.IRQ_RISING|Pin.IRQ_FALLING, handler=GPIO_A0_callback)
 
 setup_display()
