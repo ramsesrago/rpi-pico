@@ -108,7 +108,7 @@ def debounce_interrupt(pin):
 
          # Check if enough time has elapsed since the last interrupt
         if time.ticks_diff(current_time, last_interrupt_time) >= debounce_delay:
-            print("Valid interrupt")
+            print("Valid interrupt for pin: ", pin)
             last_interrupt_times[pin] = current_time
             return True
     
@@ -180,12 +180,16 @@ def GPIO_A1_callback(pin):
                 
         elif (gpio_state == 0):
             print("GPIO_A1_callback: Debounced falling edge detected for: ", pin)
-            print("GPIO_A1_callback: No logic will get executed for GPIO_A1_callback")
+            print("GPIO_A1_callback: No logic will get executed")
+            # Habilita la interrupcion nuevamente
+            pin.irq(trigger=Pin.IRQ_RISING|Pin.IRQ_FALLING, handler=GPIO_A1_callback)
         else:
             print("GPIO_A1_callback: Edge is still bouncing, ignoring...")
+            pin.irq(trigger=Pin.IRQ_RISING|Pin.IRQ_FALLING, handler=GPIO_A1_callback)
 
     else:
         print("GPIO_A1_callback: Edge is still bouncing, ignoring...")
+        pin.irq(trigger=Pin.IRQ_RISING|Pin.IRQ_FALLING, handler=GPIO_A1_callback)
     # La interrupcion se queda desactivada hasta que se inicie nuevo ciclo
     #pin.irq(trigger=Pin.IRQ_RISING|Pin.IRQ_FALLING, handler=GPIO_A1_callback)
 
