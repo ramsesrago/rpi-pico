@@ -26,7 +26,6 @@ est_formatted_time = "{a:02d}:{b:02d}".format(a = est_time[4], b = est_time[5]%6
 elapsed_time = 0
 # Diccionario que captura el tiempo en que la ultima interrupcion ocurrio
 last_interrupt_times = {}
-pin_number_map = {}
 debounce_delay = 5  # Adjust this value to your debounce requirements (in milliseconds)
 
 # PLC definitions
@@ -117,17 +116,14 @@ def debounce_interrupt(pin):
 
 # INICIO empieza timer
 def GPIO_A0_callback(pin):
-    # La interrupcion de inicio de ciclo se dehabilita y se vuelve a habilitar hasta que
-    # el proceso cuente una pieza mediante A1
-    pin.irq(handler=None)
-    
+    pin.irq(handler=None)    
     gpio_state = pin.value()  # Define button_state locally
     
     if (debounce_interrupt(pin)):
         
         if (gpio_state == 1):
-            print("GPIO_A0_callback Debounced rising edge detected for: ", pin)
-            print("Timer logic to execute")
+            print("GPIO_A0_callback: Debounced rising edge detected for: ", pin)
+            print("GPIO_A0_callback: Timer logic to execute")
             # Start timer
             global start_time, GPIO_A1, GPIO_A2, elapsed_time, formatted_time
             elapsed_time = 0
@@ -139,13 +135,13 @@ def GPIO_A0_callback(pin):
             GPIO_A1.irq(trigger=Pin.IRQ_FALLING|Pin.IRQ_RISING, handler=GPIO_A1_callback)
             GPIO_A2.irq(trigger=Pin.IRQ_FALLING|Pin.IRQ_RISING, handler=GPIO_A2_callback)
         elif (gpio_state == 0):
-            print("GPIO_A0_callback Debounced falling edge detected for: ", pin)
-            print("No logic will get executed")
+            print("GPIO_A0_callback: Debounced falling edge detected for: ", pin)
+            print("GPIO_A0_callback: No logic will get executed for GPIO_A0")
         else:
-            print("Edge is still bouncing, ignoring...")
+            print("GPIO_A0_callback: Edge is still bouncing, ignoring...")
         
     else:
-        print("GPIO A0 bouncing detected and ignored")
+        print("GPIO_A0_callback: bouncing detected and ignored")
     
     pin.irq(trigger=Pin.IRQ_RISING|Pin.IRQ_FALLING, handler=GPIO_A0_callback)
 
@@ -163,47 +159,68 @@ def GPIO_A0_callback(pin):
 # Se incrementa el MAGENTA
 
 def GPIO_A1_callback(pin):
-    # La interrupcion de la cuenta de piezas se dehabilita ya que el ciclo ha terminado
-    # Se vuelve a habilitar hasta que inicie un nuevo ciclo
-    pin.irq(handler=None)
-    print("GPIO_A1_callback Falling edge detected for: ", pin)
-    global on_time_pz, elapsed_time, delayed_pz, tick_timer, GPIO_A0
+    pin.irq(handler=None)    
+    gpio_state = pin.value()
     
-    # Detiene el timer
-    tick_timer.deinit()    
-    tiempo_total = est_time[5] + est_time[4]*60
-    if (elapsed_time < tiempo_total):
-        print("GPIO_A1_callback elapsed_time < est_time")
-        on_time_pz += 1
+    if (debounce_interrupt(pin)):
+        if (gpio_state == 1):
+            print("GPIO_A1_callback: Falling edge detected for: ", pin)
+            global on_time_pz, elapsed_time, delayed_pz, tick_timer
+            
+            # Detiene el timer
+            tick_timer.deinit()    
+            tiempo_total = est_time[5] + est_time[4]*60
+            if (elapsed_time < tiempo_total):
+                print("GPIO_A1_callback: elapsed_time < est_time")
+                on_time_pz += 1
+            else:
+                print("GPIO_A1_callback: elapsed_time >= est_time")
+                on_time_pz += 1
+                delayed_pz += 1
+                
+        elif (gpio_state == 0):
+            print("GPIO_A1_callback: Debounced falling edge detected for: ", pin)
+            print("GPIO_A1_callback: No logic will get executed for GPIO_A1_callback")
+        else:
+            print("GPIO_A1_callback: Edge is still bouncing, ignoring...")
+
     else:
-        print("GPIO_A1_callback elapsed_time >= est_time")
-        on_time_pz += 1
-        delayed_pz += 1
-    
-    # El sistema esta listo para recibir otro inicio de ciclo
-    GPIO_A0.irq(trigger=Pin.IRQ_RISING, handler=GPIO_A0_callback)
+        print("GPIO_A1_callback: Edge is still bouncing, ignoring...")
+    # La interrupcion se queda desactivada hasta que se inicie nuevo ciclo
+    #pin.irq(trigger=Pin.IRQ_RISING|Pin.IRQ_FALLING, handler=GPIO_A1_callback)
 
 # RESET GENERAL
 # Resetea contador de piezas
 # Resetea contador de piezas en retraso
 def GPIO_A2_callback(pin):
-    # Se deshabilita la interrupcion para evitar rebote
-    # Se vuelve a habilitar mediante la interrupcion de A0
     pin.irq(handler=None)
-    print("GPIO_A2_callback Falling edge detected for: ", pin)
-    global on_time_pz, delayed_pz, formatted_time, GPIO_A0, tick_timer, elapsed_time
-    on_time_pz = 0
-    delayed_pz = 0
-    elapsed_time = 0
-    formatted_time = "00:00"
-    tick_timer.deinit()
+    gpio_state = pin.value()
+    
+    print("hola")
+    
+    if (debounce_interrupt(pin)):
+        if (gpio_state == 1):
+            print("GPIO_A2_callback Falling edge detected for: ", pin)
+            global on_time_pz, delayed_pz, formatted_time, tick_timer, elapsed_time
+            on_time_pz = 0
+            delayed_pz = 0
+            elapsed_time = 0
+            formatted_time = "00:00"
+            tick_timer.deinit()
+        elif (gpio_state == 0):
+            print("GPIO_A2_callback: Debounced falling edge detected for: ", pin)
+            print("GPIO_A2_callback: No logic will get executed for GPIO_A1_callback")
+        else:
+            print("GPIO_A2_callback: Edge is still bouncing, ignoring...")
+    else:
+        print("GPIO_A2_callback: Edge is still bouncing, ignoring...")
     
     # El sistema esta listo para recibir otro inicio de ciclo
-    GPIO_A0.irq(trigger=Pin.IRQ_FALLING, handler=GPIO_A0_callback)
+    pin.irq(trigger=Pin.IRQ_FALLING|Pin.IRQ_RISING, handler=GPIO_A2_callback)
 
 # Can an interrupt be interrupted?
 def setup_gpios():
-    global GPIO_A0, GPIO_A1, GPIO_A2, last_interrupt_times, pin_number_map
+    global GPIO_A0, GPIO_A1, GPIO_A2, last_interrupt_times
     GPIO_A0 = Pin(26, Pin.IN, Pin.PULL_UP)
     GPIO_A1 = Pin(27, Pin.IN, Pin.PULL_UP)
     GPIO_A2 = Pin(28, Pin.IN, Pin.PULL_UP)
