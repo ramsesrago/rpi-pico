@@ -11,6 +11,7 @@ lock = _thread.allocate_lock()  # Lock for synchronization
 # Display definitions
 i75 = Interstate75(display=Interstate75.DISPLAY_INTERSTATE75_64X32)
 graphics = i75.display
+i75.set_led(0, 255, 0)
 MAGENTA = graphics.create_pen(255, 0, 255)
 BLACK = graphics.create_pen(0, 0, 0)
 WHITE = graphics.create_pen(255, 255, 255)
@@ -21,12 +22,12 @@ graphics.set_backlight(1)
 
 # Timer definitions
 total_time = 100
-est_time = time.localtime(15)
+est_time = time.localtime(12)
 est_formatted_time = "{a:02d}:{b:02d}".format(a = est_time[4], b = est_time[5]%60)
 elapsed_time = 0
 # Diccionario que captura el tiempo en que la ultima interrupcion ocurrio
 last_interrupt_times = {}
-debounce_delay = 5  # Adjust this value to your debounce requirements (in milliseconds)
+debounce_delay = 15  # Adjust this value to your debounce requirements (in milliseconds)
 
 # PLC definitions
 ## A0
@@ -56,8 +57,8 @@ def setup_display():
     
 def display_actual_time(formatted_time):
     graphics.set_pen(GREEN)
-    graphics.text("T.Act: ", 1, 16, scale=1)
-    graphics.text(formatted_time, 1, 24, spacing = 2, scale=1)
+    graphics.text("T.Act: ", 1, 16, scale=1.5)
+    graphics.text(formatted_time, 1, 24, spacing = 2, scale=1.5)
     
 def display_est_time():
     graphics.set_pen(WHITE)
@@ -200,8 +201,6 @@ def GPIO_A2_callback(pin):
     pin.irq(handler=None)
     gpio_state = pin.value()
     
-    print("hola")
-    
     if (debounce_interrupt(pin)):
         if (gpio_state == 1):
             print("GPIO_A2_callback Falling edge detected for: ", pin)
@@ -234,4 +233,5 @@ def setup_gpios():
 
 setup_display()
 setup_timers()
+time.sleep(10)
 setup_gpios()
