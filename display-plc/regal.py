@@ -5,6 +5,7 @@ from interstate75 import Interstate75
 import time
 from machine import Pin, Timer
 import _thread
+import regal_font
 
 lock = _thread.allocate_lock()  # Lock for synchronization
 
@@ -23,7 +24,7 @@ graphics.set_backlight(1)
 # Timer definitions
 total_time = 100
 est_time = time.localtime(12)
-est_formatted_time = "{a:02d}:{b:02d}".format(a = est_time[4], b = est_time[5]%60)
+est_formatted_time = "{a:02d} :{b:02d}".format(a = est_time[4], b = est_time[5]%60)
 elapsed_time = 0
 # Diccionario que captura el tiempo en que la ultima interrupcion ocurrio
 last_interrupt_times = {}
@@ -44,12 +45,13 @@ on_time_pz = 0
 # bitmap8
 
 def setup_display():
+    global my_font
     graphics.clear()
-    graphics.set_font("bitmap8")
-    graphics.set_thickness(45)
+    graphics.set_font(regal_font.font)
+    graphics.set_thickness(2)
     graphics.set_pen(BLACK)
     graphics.clear()
-    display_actual_time("00:00")
+    display_actual_time("00 :00")
     display_est_time()
     display_curr_count()
     display_delayed_pz()
@@ -57,17 +59,18 @@ def setup_display():
     
 def display_actual_time(formatted_time):
     graphics.set_pen(GREEN)
-    graphics.text("T.Act: ", 1, 16, scale=1.5)
-    graphics.text(formatted_time, 1, 24, spacing = 2, scale=1.5)
+    graphics.text("T.Act", 0, 16, scale=1)
+    graphics.text(formatted_time, 0, 24, spacing = 1, scale=1)
+    #graphics.character(69, 50, 0, scale=1)
     
 def display_est_time():
     graphics.set_pen(WHITE)
-    graphics.text("T.Est", 1, 0, scale=1)
-    graphics.text(est_formatted_time, 1, 8, spacing = 2, scale=1)
+    graphics.text("T.Est", 0, 0, scale=1)
+    graphics.text(est_formatted_time, 0, 8, spacing = 1, scale=1)
 
 def display_curr_count():
     graphics.set_pen(MAGENTA)
-    graphics.text("C:" + str(on_time_pz), 32, 4, spacing = 2, scale=1)
+    graphics.text("C:" + str(on_time_pz), 32, 4, spacing = 1, scale=1)
 
 def display_delayed_pz():
     # Imprimir cuenta de piezas retrasadas
@@ -86,7 +89,7 @@ def time_tick(timer):
     
 def update_display_callback(timer):
     global formatted_time, elapsed_time
-    formatted_time = "{a:02d}:{b:02d}".format(a = elapsed_time//60, b = elapsed_time%60)
+    formatted_time = "{a:02d} :{b:02d}".format(a = elapsed_time//60, b = elapsed_time%60)
     graphics.set_pen(BLACK)
     graphics.clear()
     display_actual_time(formatted_time)
@@ -128,7 +131,7 @@ def GPIO_A0_callback(pin):
             # Start timer
             global start_time, GPIO_A1, GPIO_A2, elapsed_time, formatted_time
             elapsed_time = 0
-            formatted_time = "00:00"
+            formatted_time = "00 :00"
             start_time = time.time()
             tick_timer.init(period=1000, mode=Timer.PERIODIC, callback=time_tick)
             #start_timer()
@@ -208,7 +211,7 @@ def GPIO_A2_callback(pin):
             on_time_pz = 0
             delayed_pz = 0
             elapsed_time = 0
-            formatted_time = "00:00"
+            formatted_time = "00 :00"
             tick_timer.deinit()
         elif (gpio_state == 0):
             print("GPIO_A2_callback: Debounced falling edge detected for: ", pin)
