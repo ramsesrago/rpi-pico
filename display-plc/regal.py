@@ -23,7 +23,9 @@ graphics.set_backlight(1)
 
 # Timer definitions
 total_time = 100
-est_time = time.localtime(12)
+## Esta variable se utiliza para ecambiar el tiempo estimado (est_time)
+##
+est_time = time.localtime(120)
 est_formatted_time = "{a:02d} :{b:02d}".format(a = est_time[4], b = est_time[5]%60)
 elapsed_time = 0
 # Diccionario que captura el tiempo en que la ultima interrupcion ocurrio
@@ -78,7 +80,7 @@ def display_delayed_pz():
     # y el T.Act > T.Est
     graphics.set_pen(RED)
     delayed_pz_str = str(delayed_pz)
-    graphics.text(delayed_pz_str, 32, 16, scale=2)
+    graphics.text(delayed_pz_str, 30, 16, scale=2)
 
 def time_tick(timer):
     #print("time-tick")
