@@ -25,12 +25,12 @@ graphics.set_backlight(1)
 total_time = 100
 ## Esta variable se utiliza para ecambiar el tiempo estimado (est_time)
 ##
-est_time = time.localtime(120)
+est_time = time.localtime(60)
 est_formatted_time = "{a:02d} :{b:02d}".format(a = est_time[4], b = est_time[5]%60)
 elapsed_time = 0
 # Diccionario que captura el tiempo en que la ultima interrupcion ocurrio
 last_interrupt_times = {}
-debounce_delay = 15  # Adjust this value to your debounce requirements (in milliseconds)
+debounce_delay = 40  # Adjust this value to your debounce requirements (in milliseconds)
 
 # PLC definitions
 ## A0
@@ -39,7 +39,7 @@ debounce_delay = 15  # Adjust this value to your debounce requirements (in milli
 ## CUENTA pieza (PARO)
 ## A2
 ## RESET general
-delayed_pz = 888
+delayed_pz = 0
 on_time_pz = 0
 
 # Fonts
@@ -128,8 +128,8 @@ def GPIO_A0_callback(pin):
     if (debounce_interrupt(pin)):
         
         if (gpio_state == 1):
-            print("GPIO_A0_callback: Debounced rising edge detected for: ", pin)
-            print("GPIO_A0_callback: Timer logic to execute")
+            print("GPIO_A0_callback: Debounced RISING edge detected for: ", pin)
+            #print("GPIO_A0_callback: Timer logic to execute")
             # Start timer
             global start_time, GPIO_A1, GPIO_A2, elapsed_time, formatted_time
             elapsed_time = 0
@@ -142,7 +142,7 @@ def GPIO_A0_callback(pin):
             GPIO_A2.irq(trigger=Pin.IRQ_FALLING|Pin.IRQ_RISING, handler=GPIO_A2_callback)
         elif (gpio_state == 0):
             print("GPIO_A0_callback: Debounced falling edge detected for: ", pin)
-            print("GPIO_A0_callback: No logic will get executed for GPIO_A0")
+            #print("GPIO_A0_callback: No logic will get executed for GPIO_A0")
         else:
             print("GPIO_A0_callback: Edge is still bouncing, ignoring...")
         
@@ -170,7 +170,7 @@ def GPIO_A1_callback(pin):
     
     if (debounce_interrupt(pin)):
         if (gpio_state == 1):
-            print("GPIO_A1_callback: Falling edge detected for: ", pin)
+            print("GPIO_A1_callback: RISING edge detected for: ", pin)
             global on_time_pz, elapsed_time, delayed_pz, tick_timer
             
             # Detiene el timer
@@ -186,7 +186,7 @@ def GPIO_A1_callback(pin):
                 
         elif (gpio_state == 0):
             print("GPIO_A1_callback: Debounced falling edge detected for: ", pin)
-            print("GPIO_A1_callback: No logic will get executed")
+            #print("GPIO_A1_callback: No logic will get executed")
             # Habilita la interrupcion nuevamente
             pin.irq(trigger=Pin.IRQ_RISING|Pin.IRQ_FALLING, handler=GPIO_A1_callback)
         else:
@@ -208,7 +208,7 @@ def GPIO_A2_callback(pin):
     
     if (debounce_interrupt(pin)):
         if (gpio_state == 1):
-            print("GPIO_A2_callback Falling edge detected for: ", pin)
+            print("GPIO_A2_callback Rising edge detected for: ", pin)
             global on_time_pz, delayed_pz, formatted_time, tick_timer, elapsed_time
             on_time_pz = 0
             delayed_pz = 0
@@ -217,7 +217,7 @@ def GPIO_A2_callback(pin):
             tick_timer.deinit()
         elif (gpio_state == 0):
             print("GPIO_A2_callback: Debounced falling edge detected for: ", pin)
-            print("GPIO_A2_callback: No logic will get executed for GPIO_A1_callback")
+            #print("GPIO_A2_callback: No logic will get executed for GPIO_A1_callback")
         else:
             print("GPIO_A2_callback: Edge is still bouncing, ignoring...")
     else:
