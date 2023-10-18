@@ -21,8 +21,6 @@ RED = graphics.create_pen(255, 24, 24)
 BLUE = graphics.create_pen(8, 51, 162)
 graphics.set_backlight(1)
 
-# Timer definitions
-total_time = 100
 ## Esta variable se utiliza para ecambiar el tiempo estimado (est_time)
 ##
 est_time = time.localtime(110) 
@@ -38,6 +36,9 @@ gpio_2_interrupt_count = 0
 gpio_a0_state = 1
 gpio_a1_state = 1
 gpio_a2_state = 1
+gpio_a0_irq_flags = 0
+gpio_a1_irq_flags = 0
+gpio_a2_irq_flags = 0
 # PLC definitions
 ## A0
 ## INICIO ciclo
@@ -89,11 +90,10 @@ def display_delayed_pz():
     graphics.text(delayed_pz_str, 30, 16, scale=2)
 
 def time_tick(timer):
-    #print("time-tick")
-    global start_time, total_time, elapsed_time
-    current_time = time.time() # using the time() function will likely be more accurate than counting the ticks, plus we can mess with the tick frequency now.
+    global start_time, elapsed_time
+    # using the time() function will likely be more accurate than counting the ticks, plus we can mess with the tick frequency now.
+    current_time = time.time()
     elapsed_time = current_time - start_time
-    
     
 def update_display_callback(timer):
     global formatted_time, elapsed_time
@@ -111,7 +111,7 @@ def setup_timers():
     tick_timer = Timer(period=86400000, mode=Timer.ONE_SHOT, callback=time_tick)
     update_display_timer = Timer(period=500, mode=Timer.PERIODIC, callback=update_display_callback)    
     
-def debounce_interrupt(pin, gpio_state):
+def debounce_interrupt(pin, gpio_state, irq_flags):
     
     global last_interrupt_times
     
@@ -123,25 +123,23 @@ def debounce_interrupt(pin, gpio_state):
         if time.ticks_diff(current_time, last_interrupt_time) >= debounce_delay:
             #print("Valid interrupt for pin: ", pin)
             last_interrupt_times[pin] = current_time
-            irq_flags = pin.irq().flags()
 
             if (irq_flags & Pin.IRQ_FALLING):
                 print("FALLING edge for pin: ", pin)
                 if (gpio_state == 0):
-                    print("Debounced gpio_state == 0 edge detected for pin: ", pin)
+                    print("Debounced gpio_state == 0 FALLING edge detected for pin: ", pin)
                     return True
-    
+                
     return False
 
 # INICIO empieza timer
 def GPIO_A0_callback(pin):
     #pin.irq(handler=None)    
-    #gpio_state = pin.value()  # Define button_state locally
-    #irq_flags = pin.irq().flags()
-    global gpio_a0_state
+    global gpio_a0_state, gpio_a0_irq_flags
     gpio_a0_state = pin.value()
+    gpio_a0_irq_flags = pin.irq().flags()
     
-    if (debounce_interrupt(pin, gpio_a0_state)):
+    if (debounce_interrupt(pin, gpio_a0_state, gpio_a0_irq_flags)):
         global start_time, GPIO_A1, GPIO_A2, elapsed_time, formatted_time, gpio_0_interrupt_count
         gpio_0_interrupt_count += 1
         elapsed_time = 0
@@ -164,10 +162,11 @@ def GPIO_A0_callback(pin):
 # Se incrementa el MAGENTA
 
 def GPIO_A1_callback(pin):
-    global gpio_a1_state
+    global gpio_a1_state, gpio_a1_irq_flags
     gpio_a1_state = pin.value()
+    gpio_a1_irq_flags = pin.irq().flags()
     
-    if (debounce_interrupt(pin, gpio_a1_state)):
+    if (debounce_interrupt(pin, gpio_a1_state, gpio_a1_irq_flags)):
         global on_time_pz, elapsed_time, delayed_pz, tick_timer, gpio_1_interrupt_count
         gpio_1_interrupt_count += 1
         # Detiene el timer
@@ -184,10 +183,11 @@ def GPIO_A1_callback(pin):
 # Resetea contador de piezas
 # Resetea contador de piezas en retraso
 def GPIO_A2_callback(pin):
-    global gpio_a2_state
+    global gpio_a2_state, gpio_a2_irq_flags
     gpio_a2_state = pin.value()
+    gpio_a2_irq_flags = pin.irq().flags()
     
-    if (debounce_interrupt(pin, gpio_a2_state)):
+    if (debounce_interrupt(pin, gpio_a2_state, gpio_a2_irq_flags)):
         global on_time_pz, delayed_pz, formatted_time, tick_timer, elapsed_time, gpio_2_interrupt_count
         gpio_2_interrupt_count += 1
         on_time_pz = 0
