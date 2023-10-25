@@ -21,14 +21,14 @@ RED = graphics.create_pen(255, 24, 24)
 BLUE = graphics.create_pen(8, 51, 162)
 graphics.set_backlight(1)
 
-## Esta variable se utiliza para ecambiar el tiempo estimado (est_time)
+## This variable is used to change "T.Est"
 est_time = time.localtime(110) 
 est_formatted_time = "{a:02d} :{b:02d}".format(a = est_time[4], b = est_time[5]%60)
 elapsed_time = 0
 
-# Diccionario que captura el tiempo en que la ultima interrupcion ocurrio
+# Dictionary to capture the timestamp of the last interrupt
 last_interrupt_times = {}
-debounce_delay = 100  # Adjust this value to your debounce requirements (in milliseconds)
+debounce_delay = 80  # Adjust this value to your debounce requirements (in milliseconds)
 
 # Performance metrics
 gpio_0_interrupt_count = 0
@@ -41,13 +41,15 @@ gpio_a2_state = 1
 gpio_a0_irq_flags = 0
 gpio_a1_irq_flags = 0
 gpio_a2_irq_flags = 0
+
+start_time = 0
 # PLC definitions
 ## A0
-## INICIO ciclo
+## INICIO ciclo (START)
 ## A1
-## CUENTA pieza (PARO)
+## CUENTA pieza (PARO), (STOP)
 ## A2
-## RESET general
+## RESET general, GENERAL RESET
 delayed_pz = 0
 on_time_pz = 0
 
@@ -62,10 +64,10 @@ class States:
 state = States.IDLE
 
 class InterruptEvent:
-    def __init__(self, event_type, event_data=None):
+    def __init__(self, event_type, event_pin, event_data=None):
         self.event_type = event_type
-        self.event_data = event_data
         self.event_pin = event_pin
+        self.event_data = event_data
         
 class gpio_interrupt_queue:
     def __init__(self, size=100):
@@ -105,7 +107,6 @@ def display_actual_time(formatted_time):
     graphics.set_pen(GREEN)
     graphics.text("T.Act", 0, 16, scale=1)
     graphics.text(formatted_time, 0, 24, spacing = 1, scale=1)
-    #graphics.character(69, 50, 0, scale=1)
     
 def display_est_time():
     graphics.set_pen(WHITE)
@@ -116,10 +117,9 @@ def display_curr_count():
     graphics.set_pen(MAGENTA)
     graphics.text("C:" + str(on_time_pz), 32, 4, spacing = 1, scale=1)
 
-def display_delayed_pz():
-    # Imprimir cuenta de piezas retrasadas
-    # Se incrementa cuando se detecta que sale una pieza
-    # y el T.Act > T.Est
+# Prints delayed piece counter
+# Incremented when a piece is detected
+def display_delayed_pz():    
     graphics.set_pen(RED)
     delayed_pz_str = str(delayed_pz)
     graphics.text(delayed_pz_str, 30, 16, scale=2)
@@ -166,22 +166,13 @@ def debounce_interrupt(pin):
 # INICIO empieza timer
 def GPIO_A0_callback(pin):
     #pin.irq(handler=None)
-    global state
-    if (debounce_interrupt(pin):
-        event = InterruptEvent(event_type=States.GPIO_A0_TRIGGERED, event_data=time.ticks_us(), event_pin=pin)
-        queue.enqueue(event)
-    #start = time.ticks_us()
-    #print("start_time: {} us".format(start))
-    #global gpio_a0_state, gpio_a0_irq_flags
-    #gpio_a0_state = pin.value()
-    #end = time.ticks_us()
-    #print("start_time: {} us".format(end))
-    #gpio_a0_irq_flags = pin.irq().flags()        
-    #pin.irq(handler=GPIO_A0_callback)
+    global state, gpio_interrupt_queue
+    if (debounce_interrupt(pin)):
+        event = InterruptEvent(event_type=States.GPIO_A0_TRIGGERED, event_pin=pin, event_data=time.ticks_us())
+        gpio_interrupt_queue.enqueue(event)
     
 
 # CUENTA pieza y resetea T.Act
-
 #### CONDICION 1
 # Si el tiempo de la pieza contada excedio el T.est
 # Se tiene que incrementar el contador de piezas retrasadas (delayed_pz)
@@ -194,33 +185,44 @@ def GPIO_A0_callback(pin):
 # Se incrementa el MAGENTA
 
 def GPIO_A1_callback(pin):
-    global state
-    state = States.GPIO_A1_TRIGGERED
+    global state, gpio_interrupt_queue
+    if (debounce_interrupt(pin)):
+        event = InterruptEvent(event_type=States.GPIO_A1_TRIGGERED, event_pin=pin, event_data=time.ticks_us())
+        gpio_interrupt_queue.enqueue(event)
             
 
-# RESET GENERAL
-# Resetea contador de piezas
-# Resetea contador de piezas en retraso
+# GENERAL RESET
+# Reset piece counter
+# Reset delayed piece counter
 def GPIO_A2_callback(pin):
-    global state
-    state = States.GPIO_A2_TRIGGERED
+    global state, gpio_interrupt_queue
+    if (debounce_interrupt(pin)):
+        event = InterruptEvent(event_type=States.GPIO_A2_TRIGGERED, event_pin=pin, event_data=time.ticks_us())
+        gpio_interrupt_queue.enqueue(event)
     
+# MOVING AVERAGE FILTER
 def filter_gpio(pin):
-    N = 10  # Number of readings to keep for averaging
+    N = 200  # Number of readings to keep for averaging
     readings = [0] * N  # Initialize list with N zeros
-    reading_sum = 0
     reading_index = 0
-    
+    start = time.ticks_us()
     for i in range(N):
         readings[i] = pin.value()
-        reading_sum += readings[i]
+        
+    end = time.ticks_us()
+    elapsed_time_us = end - start
+    print(f"Function took {elapsed_time_us} us to run.")
+    gpio_zeroes_count = readings.count(0)
     
-    return reading_sum
+    return 100 * (gpio_zeroes_count / len(readings))
 
         
 # State handlers
-def handle_GPIO_A0():
-    if (filter_gpio(pin) > 8):
+def handle_GPIO_A0(pin):
+    print("handle_GPIO_A0")
+    average = filter_gpio(pin)
+    print("Average: ", average)
+    if (average > 90):
         global start_time, elapsed_time, formatted_time, gpio_0_interrupt_count
         gpio_0_interrupt_count += 1
         elapsed_time = 0
@@ -228,21 +230,27 @@ def handle_GPIO_A0():
         start_time = time.time()
         tick_timer.init(period=1000, mode=Timer.PERIODIC, callback=time_tick)
 
-def handle_GPIO_A1():
-    if (filter_gpio(pin) > 8):
+def handle_GPIO_A1(pin):
+    print("handle_GPIO_A1")
+    average = filter_gpio(pin)
+    print("Average: ", average)
+    if (average > 90):
         global on_time_pz, elapsed_time, delayed_pz, tick_timer, gpio_1_interrupt_count
         gpio_1_interrupt_count += 1
-        # Detiene el timer
+        # Stops the general timer
         tick_timer.deinit()    
-        tiempo_total = est_time[5] + est_time[4]*60
-        if (elapsed_time < tiempo_total):
+        total_time = est_time[5] + est_time[4]*60
+        if (elapsed_time < total_time):
             on_time_pz += 1
         else:
             on_time_pz += 1
             delayed_pz += 1
 
-def handle_GPIO_A2():
-    if (filter_gpio(pin) > 8):
+def handle_GPIO_A2(pin):
+    print("handle_GPIO_A2")
+    average = filter_gpio(pin)
+    print("Average: ", average)
+    if (average > 90):
         global on_time_pz, delayed_pz, formatted_time, tick_timer, elapsed_time, gpio_2_interrupt_count
         gpio_2_interrupt_count += 1
         on_time_pz = 0
@@ -278,7 +286,8 @@ def main():
 
     while True:
         if not gpio_interrupt_queue.is_empty():
-            event = queue.dequeue()
+            print("queue not empty")
+            event = gpio_interrupt_queue.dequeue()
             if event.event_type == States.GPIO_A0_TRIGGERED:
                 handle_GPIO_A0(event.event_pin)
                 state = States.IDLE  # Reset state to idle after handling
